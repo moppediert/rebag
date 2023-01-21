@@ -2,8 +2,7 @@ use rosbag::{ChunkRecord, IndexRecord, MessageRecord, RosBag};
 use std::env;
 
 fn main() {
-    let home = env::current_dir().unwrap();
-    let path = home.join("example.bag");
+    let path = env::current_dir().unwrap().join("example.bag");
     let bag = RosBag::new(path).unwrap();
     // Iterate over records in the chunk section
     for record in bag.chunk_records() {
