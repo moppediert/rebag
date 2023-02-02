@@ -1,33 +1,21 @@
 mod bag_indexer;
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use bag_indexer::read_bags;
+use bag_indexer::{get_topics, read_bag, get_messages};
 use std::env;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(hello).service(echo))
-        .bind(("localhost", 8080))?
-        .run()
-        .await
-}
+fn main() {
+    let bag = read_bag(
+        env::current_dir()
+            .unwrap()
+            .as_path()
+            .join("example-2.bag")
+            .as_path(),
+    );
+    let mut topics = get_topics(&bag);
+    topics.sort();
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    let mut body = "".to_string();
-    let mut topics = read_bags(env::current_dir().unwrap().as_path());
-    for (k, v) in topics.iter_mut() {
-        body = format!("{}Bag: {}", body, k);
-        v.sort();
-        for topic in v {
-            body = format!("{}\n{}", body, topic);
-        }
-        body = format!("{}\n\n-------------------------------\n\n", body);
-    }
-    HttpResponse::Ok().body(body)
-}
+    // topics.into_iter().for_each(|x| println!("{:?}", x));
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
+    let missions = get_messages(&bag, "/mcu/as_state");
+    missions.into_iter().for_each(|x| println!("{:?}", x));
 }
