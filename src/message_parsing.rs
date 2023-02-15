@@ -1,8 +1,30 @@
 use byteorder::{ByteOrder, LE};
-use std::str;
+use std::{collections::HashMap, str};
 
-fn parse_message_definition() {
-    
+fn parse_message_definition(definition: &str) {
+    let MESSAGE_SEPARATOR =
+        "================================================================================\n";
+    let message_definitions: HashMap<String, Vec<String>>;
+
+    for line in definition.split("\n") {
+        if line.starts_with("#") {
+            continue;
+        }
+
+        let mut split = line.split_whitespace();
+        let type_name = split.next().unwrap();
+        if is_primitive_type(type_name) {
+            let data_name = split.next().unwrap();
+        }
+    }
+}
+
+fn is_primitive_type(type_definition: &str) -> bool {
+    let primitive_types = [
+        "bool", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64",
+        "float32", "float64", "time", "duration",
+    ];
+    primitive_types.contains(&type_definition)
 }
 
 fn parse_primivate_data(type_definition: &str, data: &[u8]) -> String {
@@ -18,6 +40,8 @@ fn parse_primivate_data(type_definition: &str, data: &[u8]) -> String {
         "uint64" => format!("{}", parse_uint64(&data[..8]).unwrap()),
         "float32" => format!("{}", parse_float32(&data[..8]).unwrap()),
         "float64" => format!("{}", parse_float64(&data[..8]).unwrap()),
+        "time" => format!("{}", parse_float64(&data[..4]).unwrap()),
+        "duration" => format!("{}", parse_float64(&data[..4]).unwrap()),
         _ => "".to_string(),
     };
     "".to_string()
