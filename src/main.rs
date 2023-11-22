@@ -1,6 +1,7 @@
-mod bag_indexer;
+mod indexing;
+pub mod message_parsing;
 
-use bag_indexer::{get_topics, read_bag, get_messages};
+use indexing::{get_messages, read_bag};
 use std::env;
 
 fn main() {
@@ -8,14 +9,14 @@ fn main() {
         env::current_dir()
             .unwrap()
             .as_path()
-            .join("example-2.bag")
+            .join("_2021-08-14-20-37-01.bag")
             .as_path(),
     );
-    let mut topics = get_topics(&bag);
-    topics.sort();
 
-    // topics.into_iter().for_each(|x| println!("{:?}", x));
-
-    let missions = get_messages(&bag, "/mcu/as_state");
-    missions.into_iter().for_each(|x| println!("{:?}", x));
+    let missions = get_messages(&bag, "/viz/slam/finish_line");
+    let string = missions
+        .into_iter()
+        .map(|v| v.into_iter().map(|x| char::from(x)).collect::<String>())
+        .collect::<Vec<String>>();
+    // println!("{:?}", string);
 }
