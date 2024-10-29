@@ -2,6 +2,7 @@ mod indexing;
 pub mod message_parsing;
 
 use indexing::{get_messages, read_bag};
+use rustbag::MessageRecord;
 use std::env;
 
 fn main() {
