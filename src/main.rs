@@ -9,7 +9,7 @@ fn main() {
         env::current_dir()
             .unwrap()
             .as_path()
-            .join("_2021-08-14-20-37-01.bag")
+            .join("bags/autocross_2023-08-18-17-00-45.bag")
             .as_path(),
     );
 
@@ -18,5 +18,5 @@ fn main() {
         .into_iter()
         .map(|v| v.into_iter().map(|x| char::from(x)).collect::<String>())
         .collect::<Vec<String>>();
-    // println!("{:?}", string);
+    println!("{:?}", string.len());
 }

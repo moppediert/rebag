@@ -1,8 +1,9 @@
-use rosbag::{IndexRecord, RosBag};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
+
+use rustbag::{ChunkRecord, IndexRecord, MessageRecord, RosBag};
 
 pub fn read_bags(path: &Path) -> HashMap<String, RosBag> {
     let paths = fs::read_dir(path).unwrap();
@@ -56,15 +57,15 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
     let start = Instant::now();
     for record in bag.chunk_records() {
         match record.unwrap() {
-            rosbag::ChunkRecord::Chunk(chunk) => {
+            ChunkRecord::Chunk(chunk) => {
                 for message in chunk.messages() {
                     match message.unwrap() {
-                        rosbag::MessageRecord::MessageData(message_data) => {
+                        MessageRecord::MessageData(message_data) => {
                             if message_data.conn_id == 0 {
                                 messages.push(message_data.data.into());
                             }
                         }
-                        rosbag::MessageRecord::Connection(conn) => {
+                        MessageRecord::Connection(conn) => {
                             if conn.topic == topic {
                                 conn_id = conn.id;
                             }
@@ -72,7 +73,7 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
                     }
                 }
             }
-            rosbag::ChunkRecord::IndexData(index_data) => {
+            ChunkRecord::IndexData(index_data) => {
                 conns.insert(index_data.conn_id);
                 if index_data.conn_id == conn_id {
                     num_as_states += index_data.count;
