@@ -9,7 +9,7 @@ fn main() {
         env::current_dir()
             .unwrap()
             .as_path()
-            .join("../bags/autocross_2023-08-18-17-00-45.bag")
+            .join("bags/autocross_2023-08-18-17-00-45.bag")
             .as_path(),
     );
 

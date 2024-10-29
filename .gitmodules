@@ -1,0 +1,3 @@
+[submodule "src/rosbag-rs"]
+	path = src/rosbag-rs
+	url = git@github.com:moppediert/rosbag-rs.git
