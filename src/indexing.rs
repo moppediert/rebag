@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use rustbag::{ChunkRecord, IndexRecord, MessageRecord, RosBag};
+use rosbag::{ChunkRecord, IndexRecord, MessageRecord, RosBag};
 
 pub fn read_bags(path: &Path) -> HashMap<String, RosBag> {
     let paths = fs::read_dir(path).unwrap();
