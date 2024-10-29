@@ -6,7 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rosbag = { path = "../rosbag-rs" }
-actix-web = "4"
 byteorder = "1.1"
-serde_rosmsg = "0.2.0"
+bzip2 = "0.4.3"
+base16ct = "0.1"
+log = "0.4.4"
+lz4 = "1.23.2"
+memmap2 = "0.5"
+
