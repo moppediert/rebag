@@ -4,7 +4,10 @@ pub mod message_parsing;
 use indexing::{get_message_count, read_bag};
 use std::env;
 use tabled::{
-    settings::{themes::Colorization, Color, Style},
+    settings::{
+        themes::{Colorization, ColumnNames},
+        Color, Style,
+    },
     Table,
 };
 
@@ -23,7 +26,8 @@ fn main() {
     println!(
         "{}",
         Table::new(message_count)
-            .with(Style::empty())
+            .with(ColumnNames::new(["Topic", "Message count"]))
+            .with(Style::psql())
             .with(Colorization::columns([color_col1, color_col2]))
     );
 }

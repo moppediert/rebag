@@ -9,3 +9,5 @@ edition = "2021"
 rosbag = { path = "src/rosbag-rs" }
 byteorder = "1.1"
 tabled = "0.16.0"
+ratatui = "0.29.0"
+crossterm = "0.28.1"

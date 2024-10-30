@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
-use std::iter::Map;
 use std::path::Path;
 use std::time::Instant;
 
@@ -44,6 +43,33 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
     let mut index_section = "".to_string();
     let start = Instant::now();
 
+    // Get connection id from topic name
+    for record in bag.index_records() {
+        match record {
+            // connection records always come first so conn_id can be read before the first chunk info appears
+            Ok(IndexRecord::Connection(conn)) => {
+                // index_section = format!("{}/{}", index_section, "C");
+                if conn.topic == topic {
+                    conn_id = conn.id;
+                }
+            }
+            Ok(IndexRecord::ChunkInfo(chunk_info)) => {
+                // index_section = format!("{}/{}", index_section, "I");
+                let num_local_as_states = chunk_info
+                    .entries()
+                    .filter_map(|e| {
+                        if e.conn_id == conn_id {
+                            Some(e.count)
+                        } else {
+                            None
+                        }
+                    })
+                    .sum::<u32>();
+                num_as_states += num_local_as_states;
+            }
+            Err(_) => todo!(),
+        }
+    }
     // Chunk records contain connection and message records
     for record in bag.chunk_records() {
         match record {
@@ -57,7 +83,7 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
                             }
                         }
                         Ok(MessageRecord::MessageData(message_data)) => {
-                            if message_data.conn_id == 0 {
+                            if message_data.conn_id == conn_id {
                                 messages.push(message_data.data.into());
                             }
                         }
@@ -76,32 +102,6 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
         }
     }
 
-    for record in bag.index_records() {
-        match record {
-            // connection records always come first so conn_id can be read before the first chunk info appears
-            Ok(IndexRecord::Connection(conn)) => {
-                index_section = format!("{}/{}", index_section, "C");
-                if conn.topic == topic {
-                    conn_id = conn.id;
-                }
-            }
-            Ok(IndexRecord::ChunkInfo(chunk_info)) => {
-                index_section = format!("{}/{}", index_section, "I");
-                let num_local_as_states = chunk_info
-                    .entries()
-                    .filter_map(|e| {
-                        if e.conn_id == conn_id {
-                            Some(e.count)
-                        } else {
-                            None
-                        }
-                    })
-                    .sum::<u32>();
-                num_as_states += num_local_as_states;
-            }
-            Err(_) => todo!(),
-        }
-    }
     let end = Instant::now();
     let duration = end - start;
     // println!("{}", duration.as_secs_f32());
@@ -120,7 +120,6 @@ pub fn get_topics(bag: &RosBag) -> Vec<&str> {
             Ok(IndexRecord::Connection(conn)) => {
                 result.push(conn.topic);
             }
-
             Ok(IndexRecord::ChunkInfo(_)) => {}
             Err(_) => todo!(),
         }
@@ -138,11 +137,11 @@ pub fn get_message_count(bag: &RosBag) -> BTreeMap<&str, u64> {
                 count.insert(conn.topic, 0);
             }
             Ok(IndexRecord::ChunkInfo(chunk_info)) => {
-                for entry in chunk_info.entries() {
+                chunk_info.entries().for_each(|entry| {
                     count
                         .entry(conn_id_to_topic.get(&entry.conn_id).unwrap())
-                        .and_modify(|count| *count += 1);
-                }
+                        .and_modify(|count| *count += entry.count as u64);
+                });
             }
             Err(_) => todo!(),
         }
