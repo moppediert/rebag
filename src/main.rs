@@ -1,8 +1,12 @@
 mod indexing;
 pub mod message_parsing;
 
-use indexing::{get_messages, read_bag};
+use indexing::{get_message_count, read_bag};
 use std::env;
+use tabled::{
+    settings::{themes::Colorization, Color, Style},
+    Table,
+};
 
 fn main() {
     let bag = read_bag(
@@ -13,10 +17,13 @@ fn main() {
             .as_path(),
     );
 
-    let missions = get_messages(&bag, "/viz/slam/finish_line");
-    let string = missions
-        .into_iter()
-        .map(|v| v.into_iter().map(|x| char::from(x)).collect::<String>())
-        .collect::<Vec<String>>();
-    println!("{:?}", string.len());
+    let message_count = get_message_count(&bag);
+    let color_col1 = Color::BG_GREEN | Color::FG_BLACK;
+    let color_col2 = Color::BG_MAGENTA | Color::FG_BLACK;
+    println!(
+        "{}",
+        Table::new(message_count)
+            .with(Style::empty())
+            .with(Colorization::columns([color_col1, color_col2]))
+    );
 }

@@ -1,5 +1,5 @@
 [package]
-name = "rustbag"
+name = "rebag"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,8 +8,4 @@ edition = "2021"
 [dependencies]
 rosbag = { path = "src/rosbag-rs" }
 byteorder = "1.1"
-bzip2 = "0.4.3"
-base16ct = "0.1"
-log = "0.4.4"
-lz4 = "1.23.2"
-memmap2 = "0.5"
+tabled = "0.16.0"

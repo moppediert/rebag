@@ -1,5 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
+use std::iter::Map;
 use std::path::Path;
 use std::time::Instant;
 
@@ -34,69 +35,58 @@ pub fn read_bag(path: &Path) -> RosBag {
     RosBag::new(bag_path_str).unwrap()
 }
 
-pub fn get_topics(bag: &RosBag) -> Vec<String> {
-    let mut topics = vec![];
-    // Iterate over records in the index section
-    for record in bag.index_records() {
-        match record.unwrap() {
-            IndexRecord::Connection(conn) => {
-                topics.push(conn.topic.to_string());
-            }
-            _ => {}
-        }
-    }
-    topics
-}
-
 pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
     let mut conn_id = 9999;
     let mut messages = vec![];
     let mut sections = "".to_string();
     let mut num_as_states = 0;
     let mut conns = HashSet::new();
+    let mut index_section = "".to_string();
     let start = Instant::now();
+
+    // Chunk records contain connection and message records
     for record in bag.chunk_records() {
-        match record.unwrap() {
-            ChunkRecord::Chunk(chunk) => {
+        match record {
+            Ok(ChunkRecord::Chunk(chunk)) => {
+                index_section = format!("{}/{}", index_section, chunk.messages().count());
                 for message in chunk.messages() {
-                    match message.unwrap() {
-                        MessageRecord::MessageData(message_data) => {
-                            if message_data.conn_id == 0 {
-                                messages.push(message_data.data.into());
-                            }
-                        }
-                        MessageRecord::Connection(conn) => {
+                    match message {
+                        Ok(MessageRecord::Connection(conn)) => {
                             if conn.topic == topic {
                                 conn_id = conn.id;
                             }
                         }
+                        Ok(MessageRecord::MessageData(message_data)) => {
+                            if message_data.conn_id == 0 {
+                                messages.push(message_data.data.into());
+                            }
+                        }
+                        Err(_) => todo!(),
                     }
                 }
             }
-            ChunkRecord::IndexData(index_data) => {
+            Ok(ChunkRecord::IndexData(index_data)) => {
+                index_section = format!("{}/{}", index_section, "X");
                 conns.insert(index_data.conn_id);
                 if index_data.conn_id == conn_id {
                     num_as_states += index_data.count;
                 }
             }
+            Err(_) => todo!(),
         }
     }
-    let mut conns = conns.into_iter().collect::<Vec<u32>>();
-    conns.sort();
-    // println!("{:?}", conns);
 
-    let mut index_section = "".to_string();
     for record in bag.index_records() {
-        match record.unwrap() {
+        match record {
             // connection records always come first so conn_id can be read before the first chunk info appears
-            IndexRecord::Connection(conn) => {
-                println!("{}", conn.message_definition);
-                println!("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            Ok(IndexRecord::Connection(conn)) => {
+                index_section = format!("{}/{}", index_section, "C");
                 if conn.topic == topic {
                     conn_id = conn.id;
                 }
             }
-            IndexRecord::ChunkInfo(chunk_info) => {
+            Ok(IndexRecord::ChunkInfo(chunk_info)) => {
+                index_section = format!("{}/{}", index_section, "I");
                 let num_local_as_states = chunk_info
                     .entries()
                     .filter_map(|e| {
@@ -109,6 +99,7 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
                     .sum::<u32>();
                 num_as_states += num_local_as_states;
             }
+            Err(_) => todo!(),
         }
     }
     let end = Instant::now();
@@ -116,9 +107,45 @@ pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
     // println!("{}", duration.as_secs_f32());
     // println!("{}", sections);
     // println!("-----------------------------------------------------------------------------------------------");
-    // println!("{}", index_section);
     // println!("{:?}", num_as_states);
     // println!("{:?}", messages.len());
     // println!("chunk count: {}", bag.get_chunk_count());
     messages
+}
+
+pub fn get_topics(bag: &RosBag) -> Vec<&str> {
+    let mut result = vec![];
+    for record in bag.index_records() {
+        match record {
+            Ok(IndexRecord::Connection(conn)) => {
+                result.push(conn.topic);
+            }
+
+            Ok(IndexRecord::ChunkInfo(_)) => {}
+            Err(_) => todo!(),
+        }
+    }
+    result
+}
+
+pub fn get_message_count(bag: &RosBag) -> BTreeMap<&str, u64> {
+    let mut conn_id_to_topic = BTreeMap::new();
+    let mut count = BTreeMap::new();
+    for record in bag.index_records() {
+        match record {
+            Ok(IndexRecord::Connection(conn)) => {
+                conn_id_to_topic.insert(conn.id, conn.topic);
+                count.insert(conn.topic, 0);
+            }
+            Ok(IndexRecord::ChunkInfo(chunk_info)) => {
+                for entry in chunk_info.entries() {
+                    count
+                        .entry(conn_id_to_topic.get(&entry.conn_id).unwrap())
+                        .and_modify(|count| *count += 1);
+                }
+            }
+            Err(_) => todo!(),
+        }
+    }
+    count
 }
