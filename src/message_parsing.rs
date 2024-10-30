@@ -17,7 +17,7 @@ pub fn parse_message(definition: &str) -> &str {
 pub fn parse_message_definition(definition: &str) -> &str {
     type FieldName<'a> = &'a str;
     type FieldType<'a> = &'a str;
-    let flattened_definitions: Vec<(FieldName, FieldType)>;
+    let mut flattened_definitions: Vec<(FieldType, FieldName)> = vec![];
 
     let mut sections = definition.split(MESSAGE_SEPARATOR);
     let main_section = sections.next();
@@ -41,11 +41,37 @@ pub fn parse_message_definition(definition: &str) -> &str {
             }
 
             if let Some(v) = custom_types.get_mut(field_type) {
-                v.push(line);
+                v.push(line.split_once(' ').unwrap());
             }
         }
     }
-    println!("customer types: {:#?}", custom_types);
+    println!("custom types: {:#?}", custom_types);
+
+    for line in main_section.unwrap().split('\n') {
+        if line.starts_with('#') {
+            continue;
+        }
+
+        if line.is_empty() {
+            continue;
+        }
+
+        if line.starts_with("Header ") {
+            flattened_definitions.push(("uint32", "seq"));
+            flattened_definitions.push(("time", "stamp"));
+            flattened_definitions.push(("string", "frame_id"));
+        }
+
+        if let Some((field_type, field_name)) = line.split_once(' ') {
+            if is_primitive_type(field_type) {
+                flattened_definitions.push((field_type, field_name));
+            } else if let Some(custom_type) = custom_types.get(field_type) {
+                flattened_definitions.append(&mut custom_type.to_owned());
+            }
+        }
+    }
+
+    println!("flattended types: {:#?}", flattened_definitions);
     ""
 }
 
