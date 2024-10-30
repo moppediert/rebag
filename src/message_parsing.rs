@@ -1,22 +1,52 @@
 use byteorder::{ByteOrder, LE};
-use std::{collections::HashMap, str};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str,
+};
 
-fn parse_message_definition(definition: &str) {
-    let MESSAGE_SEPARATOR =
-        "================================================================================\n";
-    let message_definitions: HashMap<String, Vec<String>>;
+const MESSAGE_SEPARATOR: &str =
+    "================================================================================\n";
 
-    for line in definition.split("\n") {
-        if line.starts_with("#") {
-            continue;
-        }
+pub fn parse_message(definition: &str) -> &str {
+    match definition {
+        "float32 data" => "float32",
+        _ => todo!(),
+    }
+}
 
-        let mut split = line.split_whitespace();
-        let type_name = split.next().unwrap();
-        if is_primitive_type(type_name) {
-            let data_name = split.next().unwrap();
+pub fn parse_message_definition(definition: &str) -> &str {
+    type FieldName<'a> = &'a str;
+    type FieldType<'a> = &'a str;
+    let flattened_definitions: Vec<(FieldName, FieldType)>;
+
+    let mut sections = definition.split(MESSAGE_SEPARATOR);
+    let main_section = sections.next();
+
+    let mut custom_types = BTreeMap::new();
+    for section in sections {
+        let mut field_type = "";
+        for line in section.split('\n') {
+            if line.starts_with('#') {
+                continue;
+            }
+
+            if line.is_empty() {
+                continue;
+            }
+
+            if line.starts_with("MSG: ") {
+                field_type = line.trim_start_matches("MSG: ");
+                custom_types.insert(field_type, vec![]);
+                continue;
+            }
+
+            if let Some(v) = custom_types.get_mut(field_type) {
+                v.push(line);
+            }
         }
     }
+    println!("customer types: {:#?}", custom_types);
+    ""
 }
 
 fn is_primitive_type(type_definition: &str) -> bool {

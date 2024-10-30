@@ -1,7 +1,6 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::Path;
-use std::time::Instant;
 
 use rosbag::{ChunkRecord, IndexRecord, MessageRecord, RosBag};
 
@@ -35,90 +34,60 @@ pub fn read_bag(path: &Path) -> RosBag {
 }
 
 pub fn get_messages(bag: &RosBag, topic: &str) -> Vec<Vec<u8>> {
-    let mut conn_id = 9999;
+    let mut conn_id = u32::max_value();
     let mut messages = vec![];
-    let mut sections = "".to_string();
-    let mut num_as_states = 0;
-    let mut conns = HashSet::new();
-    let mut index_section = "".to_string();
-    let start = Instant::now();
 
     // Get connection id from topic name
     for record in bag.index_records() {
         match record {
             // connection records always come first so conn_id can be read before the first chunk info appears
             Ok(IndexRecord::Connection(conn)) => {
-                // index_section = format!("{}/{}", index_section, "C");
                 if conn.topic == topic {
                     conn_id = conn.id;
+                    break;
                 }
             }
-            Ok(IndexRecord::ChunkInfo(chunk_info)) => {
-                // index_section = format!("{}/{}", index_section, "I");
-                let num_local_as_states = chunk_info
-                    .entries()
-                    .filter_map(|e| {
-                        if e.conn_id == conn_id {
-                            Some(e.count)
-                        } else {
-                            None
-                        }
-                    })
-                    .sum::<u32>();
-                num_as_states += num_local_as_states;
-            }
+            Ok(IndexRecord::ChunkInfo(_)) => {}
             Err(_) => todo!(),
         }
     }
+
+    if conn_id == u32::MAX {
+        todo!("Topic not found")
+    }
+
     // Chunk records contain connection and message records
     for record in bag.chunk_records() {
         match record {
             Ok(ChunkRecord::Chunk(chunk)) => {
-                index_section = format!("{}/{}", index_section, chunk.messages().count());
                 for message in chunk.messages() {
                     match message {
-                        Ok(MessageRecord::Connection(conn)) => {
-                            if conn.topic == topic {
-                                conn_id = conn.id;
-                            }
-                        }
+                        Ok(MessageRecord::Connection(_)) => {}
                         Ok(MessageRecord::MessageData(message_data)) => {
                             if message_data.conn_id == conn_id {
-                                messages.push(message_data.data.into());
+                                messages.push(message_data.data.to_vec());
                             }
                         }
                         Err(_) => todo!(),
                     }
                 }
             }
-            Ok(ChunkRecord::IndexData(index_data)) => {
-                index_section = format!("{}/{}", index_section, "X");
-                conns.insert(index_data.conn_id);
-                if index_data.conn_id == conn_id {
-                    num_as_states += index_data.count;
-                }
-            }
+            Ok(ChunkRecord::IndexData(_)) => {}
             Err(_) => todo!(),
         }
     }
 
-    let end = Instant::now();
-    let duration = end - start;
-    // println!("{}", duration.as_secs_f32());
-    // println!("{}", sections);
-    // println!("-----------------------------------------------------------------------------------------------");
-    // println!("{:?}", num_as_states);
-    // println!("{:?}", messages.len());
-    // println!("chunk count: {}", bag.get_chunk_count());
     messages
 }
 
-pub fn get_topics(bag: &RosBag) -> Vec<&str> {
-    let mut result = vec![];
+type Topic<'a> = &'a str;
+type MessageDefinition<'a> = &'a str;
+pub fn get_topics(bag: &RosBag) -> BTreeMap<Topic, MessageDefinition> {
+    let mut result = BTreeMap::new();
     for record in bag.index_records() {
         match record {
             Ok(IndexRecord::Connection(conn)) => {
-                result.push(conn.topic);
+                result.insert(conn.topic, conn.message_definition);
             }
             Ok(IndexRecord::ChunkInfo(_)) => {}
             Err(_) => todo!(),
