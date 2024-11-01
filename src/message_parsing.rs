@@ -1,8 +1,5 @@
 use byteorder::{ByteOrder, LE};
-use std::{
-    collections::{BTreeMap, HashMap},
-    str,
-};
+use std::collections::BTreeMap;
 
 const MESSAGE_SEPARATOR: &str =
     "================================================================================\n";
@@ -14,65 +11,52 @@ pub fn parse_message(definition: &str) -> &str {
     }
 }
 
-pub fn parse_message_definition(definition: &str) -> &str {
-    type FieldName<'a> = &'a str;
-    type FieldType<'a> = &'a str;
-    let mut flattened_definitions: Vec<(FieldType, FieldName)> = vec![];
+type FieldName<'a> = &'a str;
+type FieldType<'a> = &'a str;
 
-    let mut sections = definition.split(MESSAGE_SEPARATOR);
-    let main_section = sections.next();
+pub fn parse_message_definition(
+    definition: &str,
+) -> BTreeMap<FieldName, BTreeMap<FieldName, FieldType>> {
+    let mut type_map = BTreeMap::new();
 
-    let mut custom_types = BTreeMap::new();
-    for section in sections {
-        let mut field_type = "";
+    let sections = definition.split(MESSAGE_SEPARATOR);
+
+    for (index, section) in sections.enumerate() {
+        let mut field_type = None;
+        if index == 0 {
+            field_type = Some("main");
+            type_map.insert(field_type.unwrap(), BTreeMap::new());
+        }
+
         for line in section.split('\n') {
-            if line.starts_with('#') {
+            if line.trim().starts_with('#') {
                 continue;
             }
 
-            if line.is_empty() {
+            if line.trim().is_empty() {
                 continue;
             }
 
             if line.starts_with("MSG: ") {
-                field_type = line.trim_start_matches("MSG: ");
-                custom_types.insert(field_type, vec![]);
+                field_type = Some(line.trim_start_matches("MSG: "));
+                type_map.insert(field_type.unwrap(), BTreeMap::new());
                 continue;
             }
 
-            if let Some(v) = custom_types.get_mut(field_type) {
-                v.push(line.split_once(' ').unwrap());
+            // Discard inline comments
+            let raw_line = match line.split_once('#') {
+                Some((raw, _comment)) => raw.trim(),
+                None => line.trim(),
+            };
+
+            if let Some((_field_type, _field_name)) = raw_line.split_once(' ') {
+                type_map.entry(field_type.unwrap()).and_modify(|fields| {
+                    fields.insert(_field_name, _field_type);
+                });
             }
         }
     }
-    println!("custom types: {:#?}", custom_types);
-
-    for line in main_section.unwrap().split('\n') {
-        if line.starts_with('#') {
-            continue;
-        }
-
-        if line.is_empty() {
-            continue;
-        }
-
-        if line.starts_with("Header ") {
-            flattened_definitions.push(("uint32", "seq"));
-            flattened_definitions.push(("time", "stamp"));
-            flattened_definitions.push(("string", "frame_id"));
-        }
-
-        if let Some((field_type, field_name)) = line.split_once(' ') {
-            if is_primitive_type(field_type) {
-                flattened_definitions.push((field_type, field_name));
-            } else if let Some(custom_type) = custom_types.get(field_type) {
-                flattened_definitions.append(&mut custom_type.to_owned());
-            }
-        }
-    }
-
-    println!("flattended types: {:#?}", flattened_definitions);
-    ""
+    type_map
 }
 
 fn is_primitive_type(type_definition: &str) -> bool {
