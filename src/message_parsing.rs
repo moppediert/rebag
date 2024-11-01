@@ -30,11 +30,7 @@ pub fn parse_message_definition(
         }
 
         for line in section.split('\n') {
-            if line.trim().starts_with('#') {
-                continue;
-            }
-
-            if line.trim().is_empty() {
+            if line.trim().is_empty() || line.trim().starts_with('#') {
                 continue;
             }
 
@@ -50,10 +46,18 @@ pub fn parse_message_definition(
                 None => line.trim(),
             };
 
-            if let Some((_field_type, _field_name)) = raw_line.split_once(' ') {
-                type_map.entry(field_type.unwrap()).and_modify(|fields| {
-                    fields.insert(_field_name, _field_type);
-                });
+            match raw_line.split_once(' ') {
+                Some((sub_field_type, sub_field_name)) => match field_type {
+                    Some(ft) => {
+                        type_map.entry(ft).and_modify(|fields| {
+                            fields.insert(sub_field_name, sub_field_type);
+                        });
+                    }
+                    None => panic!(
+                        "message type has to be the first line in a section, beginning with MSG"
+                    ),
+                },
+                None => panic!("Invalid message definition line: {}", raw_line),
             }
         }
     }
@@ -162,7 +166,7 @@ fn parse_str(data: &[u8]) -> Result<String, Error> {
         Ok(parsed) => Ok(parsed.to_string()),
         Err(e) => Err(Error::MessageParsingError(format!(
             "Cannot parse message of type string: {}",
-            e.to_string()
+            e
         ))),
     }
 }
