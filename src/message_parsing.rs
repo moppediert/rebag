@@ -1,5 +1,6 @@
+use anyhow::Result;
 use byteorder::{ByteOrder, LE};
-use core::str;
+use core::{fmt, str};
 use std::collections::BTreeMap;
 
 const MESSAGE_SEPARATOR: &str =
@@ -72,101 +73,118 @@ fn is_primitive_type(type_definition: &str) -> bool {
     primitive_types.contains(&type_definition)
 }
 
-fn parse_primivate_data<'a>(type_definition: &'a str, data: &'a [u8]) -> &'a str {
-    let parsed_data = match type_definition {
-        "bool" => format!("{}", parse_bool(&data[..1]).unwrap()),
-        "int8" => format!("{}", parse_int8(&data[..1]).unwrap()),
-        "uint8" => format!("{}", parse_uint8(&data[..1]).unwrap()),
-        "int16" => format!("{}", parse_int16(&data[..2]).unwrap()),
-        "uint16" => format!("{}", parse_uint16(&data[..2]).unwrap()),
-        "int32" => format!("{}", parse_uint16(&data[..4]).unwrap()),
-        "uint32" => format!("{}", parse_uint32(&data[..4]).unwrap()),
-        "int64" => format!("{}", parse_int64(&data[..8]).unwrap()),
-        "uint64" => format!("{}", parse_uint64(&data[..8]).unwrap()),
-        "float32" => format!("{}", parse_float32(&data[..8]).unwrap()),
-        "float64" => format!("{}", parse_float64(&data[..8]).unwrap()),
-        "time" => format!("{}", parse_float64(&data[..4]).unwrap()),
-        "duration" => format!("{}", parse_float64(&data[..4]).unwrap()),
-        _ => "".to_string(),
-    };
-    // &var_name
-    ""
-}
-
-#[derive(Debug)]
-pub enum Error {
-    MessageParsingError(String),
-}
-
-fn check_len(data_type: &str, data: &[u8], len: usize) -> Result<(), Error> {
-    if data.len() != len {
-        Err(Error::MessageParsingError(format!(
-            "Cannot parse message of type: {}",
-            data_type
-        )))
-    } else {
-        Ok(())
+fn parse_primivate_data(type_definition: &str, data: &[u8]) -> Result<String, MessageParsingError> {
+    // https://wiki.ros.org/msg
+    match type_definition {
+        "bool" => Ok(bool::parse(data)?.to_string()),
+        "int8" => Ok(i8::parse(data)?.to_string()),
+        "uint8" => Ok(u8::parse(data)?.to_string()),
+        "int16" => Ok(i16::parse(data)?.to_string()),
+        "uint16" => Ok(u16::parse(data)?.to_string()),
+        "int32" => Ok(i32::parse(data)?.to_string()),
+        "uint32" => Ok(u32::parse(data)?.to_string()),
+        "int64" => Ok(i64::parse(data)?.to_string()),
+        "uint64" => Ok(u64::parse(data)?.to_string()),
+        "float32" => Ok(f32::parse(data)?.to_string()),
+        "float64" => Ok(f64::parse(data)?.to_string()),
+        "string" => Ok(String::parse(data)?.to_string()),
+        "time" => Ok(u32::parse(data)?.to_string()),
+        "duration" => Ok(i32::parse(data)?.to_string()),
+        _ => panic!("Invalid primitive type: {}", type_definition),
     }
 }
 
-fn parse_bool(data: &[u8]) -> Result<bool, Error> {
-    check_len("bool", data, 1).map(|_| data[0] != 0)
+#[derive(Debug)]
+struct MessageParsingError;
+
+impl fmt::Display for MessageParsingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error parsing message definition")
+    }
 }
 
-fn parse_int8(data: &[u8]) -> Result<i8, Error> {
-    check_len("int8", data, 1).map(|_| i8::from_le_bytes(data.try_into().unwrap()))
+trait PrimitiveParser {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError>
+    where
+        Self: std::marker::Sized;
 }
 
-fn parse_uint8(data: &[u8]) -> Result<u8, Error> {
-    check_len("uint8", data, 1).map(|_| data[0])
+impl PrimitiveParser for bool {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 1);
+        Ok(data[0] != 0)
+    }
 }
 
-fn parse_int16(data: &[u8]) -> Result<i16, Error> {
-    check_len("int16", data, 2).map(|_| LE::read_i16(data))
+impl PrimitiveParser for i8 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 1);
+        Ok(i8::from_le_bytes([data[0]]))
+    }
 }
 
-fn parse_uint16(data: &[u8]) -> Result<u16, Error> {
-    check_len("uint16", data, 2).map(|_| LE::read_u16(data))
+impl PrimitiveParser for u8 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 1);
+        Ok(data[0])
+    }
 }
 
-fn parse_int32(data: &[u8]) -> Result<i32, Error> {
-    check_len("int32", data, 4).map(|_| LE::read_i32(data))
+impl PrimitiveParser for i16 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 2);
+        Ok(LE::read_i16(data))
+    }
 }
 
-fn parse_uint32(data: &[u8]) -> Result<u32, Error> {
-    check_len("uint32", data, 4).map(|_| LE::read_u32(data))
+impl PrimitiveParser for u16 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 2);
+        Ok(LE::read_u16(data))
+    }
 }
 
-fn parse_int64(data: &[u8]) -> Result<i64, Error> {
-    check_len("int64", data, 8).map(|_| LE::read_i64(data))
+impl PrimitiveParser for i32 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 4);
+        Ok(LE::read_i32(data))
+    }
 }
-
-fn parse_uint64(data: &[u8]) -> Result<u64, Error> {
-    check_len("uint64", data, 8).map(|_| LE::read_u64(data))
+impl PrimitiveParser for u32 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 4);
+        Ok(LE::read_u32(data))
+    }
 }
-
-fn parse_float32(data: &[u8]) -> Result<f32, Error> {
-    check_len("float32", data, 4).map(|_| LE::read_f32(data))
+impl PrimitiveParser for i64 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 8);
+        Ok(LE::read_i64(data))
+    }
 }
-
-fn parse_float64(data: &[u8]) -> Result<f64, Error> {
-    check_len("float64", data, 8).map(|_| LE::read_f64(data))
+impl PrimitiveParser for u64 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 8);
+        Ok(LE::read_u64(data))
+    }
 }
-
-fn parse_time(data: &[u8]) -> Result<u32, Error> {
-    check_len("time", data, 4).map(|_| LE::read_u32(data))
+impl PrimitiveParser for f32 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 4);
+        Ok(LE::read_f32(data))
+    }
 }
-
-fn parse_duration(data: &[u8]) -> Result<i32, Error> {
-    check_len("duration", data, 4).map(|_| LE::read_i32(data))
+impl PrimitiveParser for f64 {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        assert!(data.len() == 8);
+        Ok(LE::read_f64(data))
+    }
 }
-
-fn parse_str(data: &[u8]) -> Result<String, Error> {
-    match str::from_utf8(data) {
-        Ok(parsed) => Ok(parsed.to_string()),
-        Err(e) => Err(Error::MessageParsingError(format!(
-            "Cannot parse message of type string: {}",
-            e
-        ))),
+impl PrimitiveParser for String {
+    fn parse(data: &[u8]) -> Result<Self, MessageParsingError> {
+        match String::from_utf8(data.to_vec()) {
+            Ok(result) => Ok(result),
+            Err(_) => Err(MessageParsingError),
+        }
     }
 }
