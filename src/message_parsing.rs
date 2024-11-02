@@ -3,6 +3,21 @@ use byteorder::{ByteOrder, LE};
 use core::{fmt, str};
 use std::collections::BTreeMap;
 
+/*
+ * For each chunk of data:
+ * - Go through the message definition
+ * - Recursively parse each field
+ * - Move the cursor after parsing each field
+ *
+ *
+ * */
+
+struct DataReader<'a, 'b> {
+    type_def: &'a BTreeMap<FieldName<'a>, BTreeMap<FieldName<'a>, FieldType<'a>>>,
+    data: &'b [u8],
+    pos: u64,
+}
+
 const MESSAGE_SEPARATOR: &str =
     "================================================================================\n";
 
