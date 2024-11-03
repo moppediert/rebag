@@ -88,6 +88,27 @@ fn is_primitive_type(type_definition: &str) -> bool {
     primitive_types.contains(&type_definition)
 }
 
+/// https://wiki.ros.org/msg
+fn parse_sth(type_def: &str, data: &[u8]) -> Result<Box<dyn PrimitiveParser>, MessageParsingError> {
+    match type_def {
+        "bool" => Ok(Box::new(bool::parse(data)?)),
+        "int8" => Ok(Box::new(i8::parse(data)?)),
+        "uint8" => Ok(Box::new(u8::parse(data)?)),
+        "int16" => Ok(Box::new(i16::parse(data)?)),
+        "uint16" => Ok(Box::new(u16::parse(data)?)),
+        "int32" => Ok(Box::new(i32::parse(data)?)),
+        "uint32" => Ok(Box::new(u32::parse(data)?)),
+        "int64" => Ok(Box::new(i64::parse(data)?)),
+        "uint64" => Ok(Box::new(u64::parse(data)?)),
+        "float32" => Ok(Box::new(f32::parse(data)?)),
+        "float64" => Ok(Box::new(f64::parse(data)?)),
+        "string" => Ok(Box::new(String::parse(data)?)),
+        "time" => Ok(Box::new(u32::parse(data)?)),
+        "duration" => Ok(Box::new(i32::parse(data)?)),
+        _ => panic!("Error parsing type: {}", type_def),
+    }
+}
+
 fn parse_primivate_data(type_definition: &str, data: &[u8]) -> Result<String, MessageParsingError> {
     // https://wiki.ros.org/msg
     match type_definition {
