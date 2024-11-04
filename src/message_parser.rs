@@ -14,30 +14,31 @@ const MESSAGE_SEPARATOR: &str =
 type FieldName<'a> = &'a str;
 type FieldType<'a> = &'a str;
 
-/// returns 0 for variable-length array
-/// returns n for array of length n
-/// returns 1 otherwise
-pub fn match_repeat(field_def: &str) -> Option<(&str, u32)> {
+#[derive(Debug, PartialEq)]
+pub enum Repeated {
+    None,
+    Fixed(u32),
+    Variable,
+}
+
+pub fn match_repeat(field_def: &str) -> Option<(&str, Repeated)> {
     let re = Regex::new(
         r"^(?<type>[a-zA-Z]+(?:\/)?[a-zA-Z]+)(?<repeat_group>\[(?<repeat>[-]?[0-9]*)\])?$",
     )
     .unwrap();
     match re.captures(field_def) {
         Some(matched) => {
-            println!("matched? {:#?}", matched);
+            println!("matched? {:?}", matched);
             match matched.name("type") {
                 Some(field_type) => match matched.name("repeat_group") {
                     Some(_) => match matched.name("repeat") {
-                        Some(repeat) => match str::parse(repeat.as_str()) {
-                            Ok(repeat) => Some((field_type.as_str(), repeat)),
-                            Err(_) => Some((field_type.as_str(), 0)),
+                        Some(repeat) => match str::parse::<u32>(repeat.as_str()) {
+                            Ok(repeat) => Some((field_type.as_str(), Repeated::Fixed(repeat))), // float[1]
+                            Err(_) => Some((field_type.as_str(), Repeated::Fixed(0))), // float[-1]
                         },
-                        None => {
-                            // println!("---- {:#?}", field_type.as_str());
-                            Some((field_type.as_str(), 0))
-                        }
+                        None => Some((field_type.as_str(), Repeated::Variable)), // float[]
                     },
-                    None => Some((field_type.as_str(), 1)),
+                    None => Some((field_type.as_str(), Repeated::None)), // float
                 },
                 None => None,
             }
@@ -67,12 +68,14 @@ pub fn parse_message_definition(definition: &str) {
 
         match raw_line.split_once(' ') {
             Some((field_type, field_name)) => {
-                if let Some((field_type, repeat)) = match_repeat(field_type) {
+                if let Some((field_type, Repeated::Fixed(repeat))) = match_repeat(field_type) {
                     fields.push(Field {
                         field_name: field_name.to_string(),
                         field_type: field_type.to_string(),
                         field_repeat: repeat,
                     })
+                } else {
+                    // TODO
                 }
             }
             None => panic!("Invalid message definition line: {}", raw_line),
@@ -102,7 +105,9 @@ pub fn parse_message_definition(definition: &str) {
             match raw_line.split_once(' ') {
                 Some((sub_field_type, sub_field_name)) => match field_type {
                     Some(ft) => {
-                        if let Some((sub_field_type, repeat)) = match_repeat(sub_field_type) {
+                        if let Some((sub_field_type, Repeated::Fixed(repeat))) =
+                            match_repeat(sub_field_type)
+                        {
                             let sub_field = Field {
                                 field_name: sub_field_name.to_string(),
                                 field_type: sub_field_type.to_string(),
@@ -111,6 +116,8 @@ pub fn parse_message_definition(definition: &str) {
                             type_def.entry(ft).and_modify(|fields| {
                                 fields.insert(sub_field_name, sub_field);
                             });
+                        } else {
+                            // TODO
                         }
                     }
                     None => panic!(

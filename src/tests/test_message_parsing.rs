@@ -3,7 +3,7 @@ mod tests {
     use regex::Regex;
 
     use crate::{
-        message_parser::{match_repeat, parse_message_definition},
+        message_parser::{match_repeat, parse_message_definition, Repeated},
         tests::sample_messages::{float32::FLOAT32, imu::SENSOR_IMU_MESSAGE},
     };
 
@@ -17,14 +17,20 @@ mod tests {
     #[test]
     fn test_match_repeat() {
         let fixtures = [
-            ("float", Some(("float", 1))),
-            ("float[1]", Some(("float", 1))),
-            ("float[]", Some(("float", 0))),
-            ("float[999]", Some(("float", 999))),
-            ("float[-1]", Some(("float", 0))),
-            ("ns/SomeMessage", Some(("ns/SomeMessage", 1))),
-            ("ns/SomeMessage[1]", Some(("ns/SomeMessage", 1))),
-            ("ns/SomeMessage[]", Some(("ns/SomeMessage", 0))),
+            ("float", Some(("float", Repeated::None))),
+            ("float[1]", Some(("float", Repeated::Fixed(1)))),
+            ("float[]", Some(("float", Repeated::Fixed(0)))),
+            ("float[999]", Some(("float", Repeated::Fixed(999)))),
+            ("float[-1]", Some(("float", Repeated::Fixed(0)))),
+            ("ns/SomeMessage", Some(("ns/SomeMessage", Repeated::None))),
+            (
+                "ns/SomeMessage[1]",
+                Some(("ns/SomeMessage", Repeated::Fixed(1))),
+            ),
+            (
+                "ns/SomeMessage[]",
+                Some(("ns/SomeMessage", Repeated::Fixed(0))),
+            ),
             ("ns/Some/Message[]", None),
             ("", None),
             ("1", None),
@@ -32,7 +38,6 @@ mod tests {
             ("11[1]", None),
         ];
         for fixture in fixtures.iter() {
-            println!("{:#?}", fixture);
             assert_eq!(match_repeat(fixture.0), fixture.1);
         }
     }
