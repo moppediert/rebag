@@ -4,11 +4,9 @@ use core::{fmt, str};
 use std::collections::BTreeMap;
 
 /*
- * For each chunk of data:
- * - Go through the message definition
- * - Recursively parse each field
- * - Move the cursor after parsing each field
- *
+ * Input: a slice of bytes &[u8]
+ * Definition needs to resolve to: (<name>,<type>,<repeat>)
+ * Each field needs a type and a repeat factor
  *
  * */
 
@@ -19,7 +17,7 @@ struct DataReader<'a, 'b> {
 }
 
 const MESSAGE_SEPARATOR: &str =
-    "================================================================================\n";
+    "================================================================================";
 
 pub fn parse_message(definition: &str) -> &str {
     match definition {
@@ -89,7 +87,10 @@ fn is_primitive_type(type_definition: &str) -> bool {
 }
 
 /// https://wiki.ros.org/msg
-fn parse_sth(type_def: &str, data: &[u8]) -> Result<Box<dyn PrimitiveParser>, MessageParsingError> {
+fn parse_primitive(
+    type_def: &str,
+    data: &[u8],
+) -> Result<Box<dyn PrimitiveParser>, MessageParsingError> {
     match type_def {
         "bool" => Ok(Box::new(bool::parse(data)?)),
         "int8" => Ok(Box::new(i8::parse(data)?)),
@@ -109,7 +110,10 @@ fn parse_sth(type_def: &str, data: &[u8]) -> Result<Box<dyn PrimitiveParser>, Me
     }
 }
 
-fn parse_primivate_data(type_definition: &str, data: &[u8]) -> Result<String, MessageParsingError> {
+fn parse_primivate_to_string(
+    type_definition: &str,
+    data: &[u8],
+) -> Result<String, MessageParsingError> {
     // https://wiki.ros.org/msg
     match type_definition {
         "bool" => Ok(bool::parse(data)?.to_string()),

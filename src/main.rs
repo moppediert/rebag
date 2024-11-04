@@ -1,4 +1,6 @@
+mod cursor;
 mod indexing;
+mod message_parser;
 mod message_parsing;
 mod tests;
 
