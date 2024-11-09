@@ -2,18 +2,15 @@ use std::collections::BTreeMap;
 
 use regex::Regex;
 
+const MESSAGE_SEPARATOR: &str =
+    "================================================================================";
+
 #[derive(Debug)]
 struct Field {
     field_name: String,
     field_type: String,
-    field_repeat: u32,
+    field_repeat: Repeated,
 }
-
-const MESSAGE_SEPARATOR: &str =
-    "================================================================================";
-type FieldName<'a> = &'a str;
-type FieldType<'a> = &'a str;
-
 #[derive(Debug, PartialEq)]
 pub enum Repeated {
     None,
@@ -23,12 +20,12 @@ pub enum Repeated {
 
 pub fn match_repeat(field_def: &str) -> Option<(&str, Repeated)> {
     let re = Regex::new(
-        r"^(?<type>[a-zA-Z]+(?:\/)?[a-zA-Z]+)(?<repeat_group>\[(?<repeat>[-]?[0-9]*)\])?$",
+        r"^(?<type>[a-zA-Z0-9_]+(?:\/)?[a-zA-Z0-9_]+)(?<repeat_group>\[(?<repeat>[-]?[0-9]*)\])?$",
     )
     .unwrap();
+    println!("------{:#?}", field_def);
     match re.captures(field_def) {
         Some(matched) => {
-            println!("matched? {:?}", matched);
             match matched.name("type") {
                 Some(field_type) => match matched.name("repeat_group") {
                     Some(_) => match matched.name("repeat") {
@@ -68,14 +65,14 @@ pub fn parse_message_definition(definition: &str) {
 
         match raw_line.split_once(' ') {
             Some((field_type, field_name)) => {
-                if let Some((field_type, Repeated::Fixed(repeat))) = match_repeat(field_type) {
+                if let Some((field_type, repeat)) = match_repeat(field_type) {
                     fields.push(Field {
                         field_name: field_name.to_string(),
                         field_type: field_type.to_string(),
                         field_repeat: repeat,
                     })
                 } else {
-                    // TODO
+                    panic!("Cannot parse message")
                 }
             }
             None => panic!("Invalid message definition line: {}", raw_line),
@@ -104,10 +101,8 @@ pub fn parse_message_definition(definition: &str) {
 
             match raw_line.split_once(' ') {
                 Some((sub_field_type, sub_field_name)) => match field_type {
-                    Some(ft) => {
-                        if let Some((sub_field_type, Repeated::Fixed(repeat))) =
-                            match_repeat(sub_field_type)
-                        {
+                    Some(ft) => match match_repeat(sub_field_type) {
+                        Some((sub_field_type, repeat)) => {
                             let sub_field = Field {
                                 field_name: sub_field_name.to_string(),
                                 field_type: sub_field_type.to_string(),
@@ -116,10 +111,9 @@ pub fn parse_message_definition(definition: &str) {
                             type_def.entry(ft).and_modify(|fields| {
                                 fields.insert(sub_field_name, sub_field);
                             });
-                        } else {
-                            // TODO
                         }
-                    }
+                        None => panic!("Cannot parse message"),
+                    },
                     None => panic!(
                         "Message type has to be the first line in a section, beginning with MSG"
                     ),
