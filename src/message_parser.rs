@@ -89,7 +89,7 @@ pub fn parse_message_definition(definition: &str) {
 
             if line.starts_with("MSG: ") {
                 field_type = Some(line.trim_start_matches("MSG: "));
-                type_def.insert(field_type.unwrap(), BTreeMap::new());
+                type_def.insert(field_type.unwrap(), vec![]);
                 continue;
             }
 
@@ -109,7 +109,7 @@ pub fn parse_message_definition(definition: &str) {
                                 field_repeat: repeat,
                             };
                             type_def.entry(ft).and_modify(|fields| {
-                                fields.insert(sub_field_name, sub_field);
+                                fields.push(sub_field);
                             });
                         }
                         None => panic!("Cannot parse message"),
