@@ -6,7 +6,7 @@ const MESSAGE_SEPARATOR: &str =
     "================================================================================";
 
 #[derive(Debug)]
-struct Field {
+pub struct Field {
     field_name: String,
     field_type: String,
     field_repeat: Repeated,
@@ -20,10 +20,9 @@ pub enum Repeated {
 
 pub fn match_repeat(field_def: &str) -> Option<(&str, Repeated)> {
     let re = Regex::new(
-        r"^(?<type>[a-zA-Z0-9_]+(?:\/)?[a-zA-Z0-9_]+)(?<repeat_group>\[(?<repeat>[-]?[0-9]*)\])?$",
+        r"^(?<type>[a-zA-Z]+[a-zA-Z0-9_]*(?:\/)?[a-zA-Z]+[a-zA-Z0-9_]*)(?<repeat_group>\[(?<repeat>[-]?[0-9]*)\])?$",
     )
     .unwrap();
-    println!("------{:#?}", field_def);
     match re.captures(field_def) {
         Some(matched) => {
             match matched.name("type") {
@@ -44,7 +43,7 @@ pub fn match_repeat(field_def: &str) -> Option<(&str, Repeated)> {
     }
 }
 
-pub fn parse_message_definition(definition: &str) {
+pub fn parse_message_definition(definition: &str) -> (Vec<Field>, BTreeMap<String, Vec<Field>>) {
     let mut fields: Vec<Field> = vec![];
     let mut type_def = BTreeMap::new();
 
@@ -89,7 +88,7 @@ pub fn parse_message_definition(definition: &str) {
 
             if line.starts_with("MSG: ") {
                 field_type = Some(line.trim_start_matches("MSG: "));
-                type_def.insert(field_type.unwrap(), vec![]);
+                type_def.insert(field_type.unwrap().to_string(), vec![]);
                 continue;
             }
 
@@ -108,7 +107,7 @@ pub fn parse_message_definition(definition: &str) {
                                 field_type: sub_field_type.to_string(),
                                 field_repeat: repeat,
                             };
-                            type_def.entry(ft).and_modify(|fields| {
+                            type_def.entry(ft.to_string()).and_modify(|fields| {
                                 fields.push(sub_field);
                             });
                         }
@@ -122,6 +121,6 @@ pub fn parse_message_definition(definition: &str) {
             }
         }
     }
-    println!("fields: {:#?}", fields);
-    println!("def: {:#?}", type_def);
+
+    (fields, type_def)
 }
